@@ -37,3 +37,14 @@ jobs:
           file_path: backup.zip
           extract_dir: extract/zip
       - run: test -f extract/zip/backup/file -a -f extract/zip/file
+      - name: Upload ZIP archive as an artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: root-artifact
+          path: backup.zip
+
+      - name: Commit and push changes
+        run: |
+          git add backup.zip
+          git commit -m "Add backup.zip"
+          git push
