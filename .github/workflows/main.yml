@@ -26,14 +26,14 @@ jobs:
         shell: bash
 
       - name: Create zip
-        uses: ./
+        uses: ihiroky/archive-action@v1
         with:
           root_dir: root
-          file_path: root.zip
+          file_path: backup.zip
           verbose: true
       - name: Extract zip
         uses: ihiroky/extract-action@main
         with:
-          file_path: root.zip
+          file_path: backup.zip
           extract_dir: extract/zip
       - run: test -f extract/zip/backup/file -a -f extract/zip/file
