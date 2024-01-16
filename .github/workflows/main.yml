@@ -18,3 +18,22 @@ jobs:
         with:
           sarif_file: snyk.sarif
 
+      - name: Prepare files to archive
+        run: |
+          mkdir -p root/backup/
+          touch root/backup/file
+          touch root/file
+        shell: bash
+
+      - name: Create zip
+        uses: ./
+        with:
+          root_dir: root
+          file_path: root.zip
+          verbose: true
+      - name: Extract zip
+        uses: ihiroky/extract-action@main
+        with:
+          file_path: root.zip
+          extract_dir: extract/zip
+      - run: test -f extract/zip/backup/file -a -f extract/zip/file
