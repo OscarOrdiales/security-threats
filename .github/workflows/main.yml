@@ -12,7 +12,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: test
-          args: --sarif-file-output=snyk.sarif --all-projects --detection-depth=6 --prune-repeated-subdependencies --print-deps
+          args: --sarif-file-output=snyk.sarif --detection-depth=10 --all-projects
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v2
         with:
