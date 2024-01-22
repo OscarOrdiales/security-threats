@@ -1,50 +1,73 @@
-name: Scan code with Snyk
-on: push
+name: Snyk Security
+on:
+  push:
+    branches: ["main" ]
+  pull_request:
+    branches: ["main"]
+permissions:
+  contents: read
 jobs:
-  security:
+  snyk:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: write # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     runs-on: ubuntu-latest
+    env:
+      # This is where you will need to introduce the Snyk API token created with your Snyk account
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      SARIF_FOLDER: sarif-results
     steps:
-      - uses: actions/checkout@master
-      - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/node@master
-        continue-on-error: true # To make sure that SARIF upload gets called
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - uses: actions/checkout@v3
+      - name: Set up Snyk CLI to check for security issues
+        # Snyk can be used to break the build when it detects security issues.
+        # In this case we want to upload the SAST issues to GitHub Code Scanning
+        uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
+      # For Snyk Open Source you must first set up the development environment for your application's dependencies
+      - uses: actions/setup-dotnet@v3
         with:
-          command: test
-          args: --sarif-file-output=snyk.sarif --detection-depth=10 --all-projects
+          dotnet-version: '7.0.x'
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Create ${{env.SARIF_FOLDER}} directory
+        run: mkdir ${{env.SARIF_FOLDER}}
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/dotnet@master
+        continue-on-error: true # To make sure that SARIF upload gets called
+        with:
+          args: --sarif-file-output=${{env.SARIF_FOLDER}}/snyk.sarif
+
+      # Runs Snyk Code (SAST) analysis and uploads result into GitHub.
+      # Use || true to not fail the pipeline
+      - name: Snyk Code test
+        run: |
+          snyk code test --all-projects --sarif-file-output=${{env.SARIF_FOLDER}}/snyk-code.sarif || true
+      # Runs Snyk Open Source (SCA) analysis and uploads result to Snyk.
+      - name: Snyk Open Source monitor
+        run: |
+          snyk monitor --all-projects
+
+      # Runs Snyk Infrastructure as Code (IaC) analysis and uploads result to Snyk.
+      - name: Snyk IaC test and report
+        run: |
+          snyk iac test --sarif > ../${{env.SARIF_FOLDER}}/snyk-iac.sarif || true
+        working-directory: ./terraform
+
+      # Build the docker image for testing
+      - name: Build a Docker image
+        run: docker build -t your/image-to-test .
+
+        # Runs Snyk Container (Container and SCA) analysis and uploads result to Snyk.
+      - name: Snyk Container monitor
+        run: |
+          snyk container test Dockerfile --file=Dockerfile  --sarif > ${{env.SARIF_FOLDER}}/snyk-container.sarif || true
+      - name: Check results
+        run: ls -l ${{env.SARIF_FOLDER}}
+        # Push the Snyk Code results into GitHub Code Scanning tab
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: snyk.sarif
-
-      - name: Prepare files to archive
-        run: |
-          mkdir -p root/backup/
-          touch root/backup/file
-          touch root/file
-        shell: bash
-
-      - name: Create zip
-        uses: ihiroky/archive-action@v1
-        with:
-          root_dir: root
-          file_path: backup.zip
-          verbose: true
-      - name: Extract zip
-        uses: ihiroky/extract-action@main
-        with:
-          file_path: backup.zip
-          extract_dir: extract/zip
-      - run: test -f extract/zip/backup/file -a -f extract/zip/file
-      - name: Upload ZIP archive as an artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: root-artifact
-          path: backup.zip
-
-      - name: Commit and push changes
-        run: |
-          git add backup.zip
-          git commit -m "Add backup.zip"
-          git push
+          sarif_file: ${{env.SARIF_FOLDER}}
