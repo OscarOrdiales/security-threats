@@ -32,19 +32,17 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Create ${{env.SARIF_FOLDER}} directory
-        run: mkdir ${{env.SARIF_FOLDER}}
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/dotnet@master
         continue-on-error: true # To make sure that SARIF upload gets called
         with:
-          args: --sarif-file-output=${{env.SARIF_FOLDER}}/snyk.sarif
+          args: --sarif-file-output=snyk.sarif
 
       # Runs Snyk Code (SAST) analysis and uploads result into GitHub.
       # Use || true to not fail the pipeline
       - name: Snyk Code test
         run: |
-          snyk code test --all-projects --sarif-file-output=${{env.SARIF_FOLDER}}/snyk-code.sarif || true
+          snyk code test --all-projects --sarif-file-output=snyk-code.sarif || true
       # Runs Snyk Open Source (SCA) analysis and uploads result to Snyk.
       - name: Snyk Open Source monitor
         run: |
@@ -53,7 +51,7 @@ jobs:
       # Runs Snyk Infrastructure as Code (IaC) analysis and uploads result to Snyk.
       - name: Snyk IaC test and report
         run: |
-          snyk iac test --sarif > ../${{env.SARIF_FOLDER}}/snyk-iac.sarif || true
+          snyk iac test --sarif > ../snyk-iac.sarif || true
         working-directory: ./terraform
 
       # Build the docker image for testing
@@ -63,11 +61,11 @@ jobs:
         # Runs Snyk Container (Container and SCA) analysis and uploads result to Snyk.
       - name: Snyk Container monitor
         run: |
-          snyk container test Dockerfile --file=Dockerfile  --sarif > ${{env.SARIF_FOLDER}}/snyk-container.sarif || true
+          snyk container test Dockerfile --file=Dockerfile  --sarif > snyk-container.sarif || true
       - name: Check results
         run: ls -l ${{env.SARIF_FOLDER}}
         # Push the Snyk Code results into GitHub Code Scanning tab
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: ${{env.SARIF_FOLDER}}
+          sarif_file: .
