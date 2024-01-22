@@ -57,8 +57,14 @@ jobs:
           snyk container test Dockerfile --file=Dockerfile  --sarif > snyk-container.sarif || true
       - name: Check results
         run: ls -l .
-        # Push the Snyk Code results into GitHub Code Scanning tab
+
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: .
+            sarif_file: snyk-code.sarif
+
+        # Push the Snyk Code results into GitHub Code Scanning tab
+   #   - name: Upload result to GitHub Code Scanning
+   #     uses: github/codeql-action/upload-sarif@v2
+   #     with:
+   #       sarif_file: .
