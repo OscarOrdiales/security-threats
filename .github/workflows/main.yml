@@ -23,17 +23,10 @@ jobs:
         # Snyk can be used to break the build when it detects security issues.
         # In this case we want to upload the SAST issues to GitHub Code Scanning
         uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
-      # For Snyk Open Source you must first set up the development environment for your application's dependencies
-      - uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '7.0.x'
-      - name: Install dependencies
-        run: dotnet restore
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
+
 
       - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/dotnet@master
+        uses: snyk/actions/node@master
         continue-on-error: true # To make sure that SARIF upload gets called
         with:
           args: --sarif-file-output=snyk.sarif
@@ -51,19 +44,19 @@ jobs:
       # Runs Snyk Infrastructure as Code (IaC) analysis and uploads result to Snyk.
       - name: Snyk IaC test and report
         run: |
-          snyk iac test --sarif > ../snyk-iac.sarif || true
-        working-directory: ./terraform
+          snyk iac test --sarif > snyk-iac.sarif || true
+        working-directory: ./
 
       # Build the docker image for testing
       - name: Build a Docker image
-        run: docker build -t your/image-to-test .
+        run: docker build -t Dockerfile .
 
         # Runs Snyk Container (Container and SCA) analysis and uploads result to Snyk.
       - name: Snyk Container monitor
         run: |
           snyk container test Dockerfile --file=Dockerfile  --sarif > snyk-container.sarif || true
       - name: Check results
-        run: ls -l ${{env.SARIF_FOLDER}}
+        run: ls -l .
         # Push the Snyk Code results into GitHub Code Scanning tab
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v2
